@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hybrid Post-Experiment Interpretation Schema",
+  "description": "A schema that generates narrative report sections (Results, Discussion, Conclusion) while also extracting key model assessments in a structured format.",
+  "type": "object",
+  "properties": {
+    "results_narrative": {
+      "type": "string",
+      "description": "The complete 'Results' section narrative. It should summarize the key statistical findings and refer to the data and plots, ready for direct inclusion in the report."
+    },
+    "discussion_narrative": {
+      "type": "string",
+      "description": "The complete 'Discussion' section narrative. It should interpret the results, relate them to the hypothesis, discuss implications, and mention strengths and weaknesses of the model for this scenario."
+    },
+    "conclusion_narrative": {
+      "type": "string",
+      "description": "The complete 'Conclusion' section narrative, summarizing the key findings from this scenario and their overall significance."
+    },
+    "structured_assessment": {
+      "type": "object",
+      "description": "A machine-readable summary of the model's performance for this specific scenario.",
+      "properties": {
+        "overall_finding": {
+          "type": "string",
+          "description": "A single, concise sentence summarizing the outcome (e.g., 'The model accurately predicted the observed data, strongly supporting the hypothesis.')."
+        },
+        "model_strengths": {
+          "type": "array",
+          "description": "A list of 2-3 key strengths the model demonstrated in this scenario.",
+          "items": { "type": "string" }
+        },
+        "model_limitations": {
+          "type": "array",
+          "description": "A list of 2-3 key limitations or areas of error the model demonstrated in this scenario.",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["overall_finding", "model_strengths", "model_limitations"]
+    }
+  },
+  "required": [
+    "results_narrative",
+    "discussion_narrative",
+    "conclusion_narrative",
+    "structured_assessment"
+  ]
+}

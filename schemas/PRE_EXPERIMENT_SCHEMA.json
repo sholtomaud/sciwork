@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Hybrid Pre-Experiment Scientific Report Schema",
+  "description": "A schema that combines narrative generation with structured, machine-readable details for key methodological components.",
+  "type": "object",
+  "properties": {
+    "abstract": {
+      "type": "string",
+      "description": "A concise, well-written summary of the entire study."
+    },
+    "introduction": {
+      "type": "string",
+      "description": "A narrative introduction to the study's background and objectives."
+    },
+    "hypothesis": {
+      "type": "object",
+      "description": "The formal hypothesis, including a narrative statement and structured variable definitions.",
+      "properties": {
+        "narrative_statement": {
+          "type": "string",
+          "description": "The formal null and alternative hypotheses written in prose, suitable for the report."
+        },
+        "independent_variable": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "unit": {"type": "string"}
+          },
+          "required": ["name", "description", "unit"]
+        },
+        "dependent_variable": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "unit": {"type": "string"}
+          },
+          "required": ["name", "description", "unit"]
+        }
+      },
+      "required": ["narrative_statement", "independent_variable", "dependent_variable"]
+    },
+    "methods": {
+      "type": "object",
+      "description": "A comprehensive methods section including both a full narrative and a structured summary of key tests and metrics.",
+      "properties": {
+        "narrative": {
+          "type": "string",
+          "description": "A complete, flowing description of the entire methodology, suitable for direct inclusion in a report."
+        },
+        "key_components": {
+          "type": "array",
+          "description": "A structured list of the core statistical components used, for easy extraction and summary.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "component_name": {"type": "string", "description": "e.g., 'RMSE', 'Pearson Correlation', 'NSE', 'Hypothesis Test'"},
+              "purpose_in_study": {"type": "string", "description": "A brief, one-sentence explanation of what this component measures or tests in the context of this specific study."}
+            },
+            "required": ["component_name", "purpose_in_study"]
+          }
+        }
+      },
+      "required": ["narrative", "key_components"]
+    }
+  },
+  "required": ["abstract", "introduction", "hypothesis", "methods"]
+}
