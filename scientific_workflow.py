@@ -9,10 +9,9 @@ import warnings
 import os
 import json
 import requests
-from report_generator import create_individual_experiment_report, create_comparative_docx_report # UPDATED IMPORT
+from report_generator import create_individual_experiment_report, create_comparative_docx_report
 import configparser
-# import os # Duplicate import removed
-import shutil # Added for shutil.copy
+import shutil
 import json
 import copy
 from datetime import datetime
@@ -26,16 +25,16 @@ config_path = os.path.join(os.getcwd(), 'config.ini')
 if os.path.exists(config_path):
     config.read(config_path)
     GEMINI_API_KEY = config.get('google_ai', 'api_key', fallback='')
-    MODEL_ID = config.get('google_ai', 'model_name', fallback='gemini-2.5-pro-preview-05-06')
+    MODEL_ID = config.get('google_ai', 'model_name', fallback='gemini-2.5-pro-preview-06-05')
     GENERATE_CONTENT_API = config.get('google_ai', 'content_api', fallback='generateContent')
 else:
     print("Warning: config.ini not found. Please create it with your Google AI configuration.")
     GEMINI_API_KEY = ""
-    MODEL_ID = "gemini-2.5-pro-preview-05-06"
+    MODEL_ID = "gemini-2.5-pro-preview-06-05"
     GENERATE_CONTENT_API="generateContent"
 
 # --- Configuration ---
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${GEMINI_API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_ID}:{GENERATE_CONTENT_API}?key={GEMINI_API_KEY}"
 
 # --- Helper function to load JSON schemas ---
 def load_json_schema(schema_filename: str) -> dict:
@@ -45,6 +44,14 @@ def load_json_schema(schema_filename: str) -> dict:
         schema_path = os.path.join(os.getcwd(), 'schemas', schema_filename)
         with open(schema_path, 'r') as f:
             schema = json.load(f)
+
+        # --- Add this cleaning step ---
+        if '$schema' in schema:
+            del schema['$schema']
+        # Potentially remove other unsupported keys here in the future if identified
+        # print(f"Loaded and cleaned schema from {schema_filename}: {schema_data}") # Optional: for debugging
+        # --- End of cleaning step ---
+        
         return schema
     except FileNotFoundError:
         print(f"Error: Schema file not found at {schema_path}")
@@ -57,7 +64,6 @@ def load_json_schema(schema_filename: str) -> dict:
 # --- Load JSON Schemas ---
 PRE_EXPERIMENT_SCHEMA_FROM_FILE = load_json_schema("PRE_EXPERIMENT_SCHEMA.json")
 POST_EXPERIMENT_SCHEMA_FROM_FILE = load_json_schema("POST_EXPERIMENT_SCHEMA.json")
-
 
 # --- Core Model and Validation Classes (from starter) ---
 
@@ -186,15 +192,71 @@ def call_gemini_api_with_requests(prompt_text, schema):
         # Return a dummy JSON structure to prevent crashes
         return {"error": error_message}
 
+
     headers = {'Content-Type': 'application/json'}
+
+    # --- TEMPORARY MINIMAL TEST ---
+    # test_prompt = "Provide a simple greeting."
+    # minimal_schema = {
+    #     "type": "OBJECT",
+    #     "properties": {
+    #         "greeting": {"type": "STRING"}
+    #     },
+    #     "required": ["greeting"]
+    # }
+    # Convert the schema keys to camelCase as per documentation for responseSchema
+    # This is a guess, the official docs show responseSchema's content itself using camelCase for its own properties like "type", "properties"
+    # but the actual schema content for "recipeName" etc. is still user-defined.
+    # Let's ensure our schema definition matches standard JSON schema structure first.
+    # The field name in the payload should be responseSchema (camelCase).
+    
+    # print(prompt_text)
+    # print(schema)
     payload = {
-        "contents": [{"parts": [{"text": prompt_text}]}],
+        "contents": [{
+            "role": "user",
+            "parts": [{"text": prompt_text}] 
+        }],
         "generationConfig": {
-            "response_mime_type": "application/json",
-            "response_schema": schema
+            "responseMimeType": "application/json",
+            "responseSchema": schema 
         }
     }
+    # --- END OF TEMPORARY MINIMAL TEST ---
+
+
+    # print(schema)
+
+    # headers = {'Content-Type': 'application/json'}
+    # payload = { "contents": [{
+    #         "role": "user",  
+    #         "parts": [{"text": prompt_text}]
+    #     }],
+    #     "generationConfig": {
+    #         "responseMimeType": "application/json",
+    #         "responseSchema": schema
+    #     }
+    # }
     
+# # "generationConfig": {
+#         "responseMimeType": "application/json",
+#         "responseSchema": {
+#           "type": "ARRAY",
+#           "items": {
+#             "type": "OBJECT",
+#             "properties": {
+#               "recipeName": { "type": "STRING" },
+#               "ingredients": {
+#                 "type": "ARRAY",
+#                 "items": { "type": "STRING" }
+#               }
+#             },
+#             "propertyOrdering": ["recipeName", "ingredients"]
+#           }
+#         }
+#       }
+
+
     try:
         response = requests.post(API_URL, headers=headers, data=json.dumps(payload))
         response.raise_for_status() # Raises an HTTPError for bad responses (4XX or 5XX)
@@ -285,16 +347,21 @@ def generate_comparative_report(initial_report_sections, all_scenarios_data, out
     for scenario_name, data in all_scenarios_data.items():
         metrics = data.get('validation_metrics', {})
         hyp_results = data.get('hypothesis_results', {})
-        # Use conclusion_narrative as a proxy for key_finding
         key_finding_proxy = data.get('results_interpretation', {}).get('conclusion_narrative', 'Conclusion not available for this scenario.')
 
-        detailed_scenario_summaries.append({
+        # Explicitly convert metrics and hypothesis_supported to Python native types
+        current_rmse = metrics.get('rmse', 0)
+        current_nse = metrics.get('nse', 0)
+        is_hypothesis_supported = hyp_results.get('hypothesis_supported', False)
+
+        summary_item = {
             "scenario_name": scenario_name,
-            "rmse": metrics.get('rmse', 0),
-            "nse": metrics.get('nse', 0),
-            "hypothesis_supported": hyp_results.get('hypothesis_supported', False),
+            "rmse": float(current_rmse),  # Ensure it's a Python float
+            "nse": float(current_nse),    # Ensure it's a Python float
+            "hypothesis_supported": bool(is_hypothesis_supported), # Ensure it's a Python bool
             "key_finding": key_finding_proxy
-        })
+        }
+        detailed_scenario_summaries.append(summary_item)
 
     # Use the overall_introduction from the first LLM call if available
     prompt2_overall_introduction = llm_response_1.get('overall_introduction', introduction_text)
