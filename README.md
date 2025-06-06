@@ -133,22 +133,27 @@ The script will execute the entire workflow, generate files in the `output/` dir
 ## Proposed Enhancements
 
 **DONE?**
-[]   **Advanced Comparative Statistics:** Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics).
-[]   **User Configuration:** Allow users to define experiment scenarios, model parameters, and data sources through the `config.ini` file or a separate scenario definition file, rather than hardcoding them.
-[]   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
 []   **`requirements.txt`:** Add a `requirements.txt` file for easier dependency management.
 []   **Robust Error Handling:** Implement more comprehensive error handling, logging, and retry mechanisms, especially for API calls.
-[]   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
-[]   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
-[]   **Plot Customization:** Allow more control over plot generation through configuration.
+[]   **Unit and Integration Testing:** Implement unit tests for individual functions and integration tests for the overall workflow. This could include jsonschema validation for LLM responses.
+[]   **Configurable Model and Data Input:** Allow users to specify the model to be validated and the source/format of observational data via configuration files, rather than hardcoding them. This includes an option to use pre-generated, immutable synthetic test data for CI/CD and testing.
+[]   **Test Data Generation Step:** If configurable observational data is supported, include an optional step to generate synthetic observation data based on user specifications.
+[]   **Consolidated JSON Data:** Combine all relevant data (LLM responses, model configuration/parameters, observational data) into a single JSON file per experiment for better data management and reproducibility.
+[]   **CI/CD integration.**
+[]   **Code linting and formatting.**
 []   **Caching LLM Responses:** Implement a caching mechanism to avoid redundant API calls for identical prompts, saving costs and time.
 []   **Support for different LLM providers.**
+[]   **Advanced Comparative Statistics:** Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics).
+[]   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
 []   **Template-based report generation.**
 []   **Version control for experimental results.**
 []   **Interactive data visualization.**
+[]   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
+[]   **Plot Customization:** Allow more control over plot generation through configuration.
 []   **Automated hyperparameter tuning.**
 []   **Sensitivity analysis.**
 []   **Cloud storage integration.**
 []   **Extensible plugin architecture.**
-[]   **Code linting and formatting.**
-[]   **CI/CD integration.**
+[]   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
+[]   **LLM-Powered Peer Review:** Add a workflow step where an LLM acts as a peer reviewer, critiquing the generated report. This would involve providing the reviewer LLM with the report content and relevant statistical data.
+[]   **Author Response to Peer Review:** Add a subsequent workflow step for the original LLM "author" to respond to the peer reviewer's critique and revise the report.
