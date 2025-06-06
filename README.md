@@ -132,6 +132,9 @@ The script will execute the entire workflow, generate files in the `output/` dir
 
 # Project Enhancement Checklist
 
+## App structure
+- [ ] **File and directory output**: Enable options for customisation of the output folder. The outputs need to default to `output/YYYYMMDD_HHMMSS` timestamped folder so that the reports are not overwritten.
+
 ## Statistical Analysis & Validation
 - [ ] **Advanced Comparative Statistics**: Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics)
 - [ ] **LLM-Powered Peer Review**: Add a workflow step where an LLM acts as a peer reviewer, critiquing the generated report. This would involve providing the reviewer LLM with the report content and relevant statistical data
