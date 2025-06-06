@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Comparative Analysis Report Schema",
+  "description": "Schema for generating a comparative analysis report across multiple experiment scenarios.",
+  "type": "object",
+  "properties": {
+    "overall_introduction": {
+      "type": "string",
+      "description": "Overall introduction to the series of experiments conducted."
+    },
+    "experiment_summaries": {
+      "type": "array",
+      "description": "Summaries of individual experiments.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "scenario_name": {
+            "type": "string",
+            "description": "Name of the scenario (e.g., 'support', 'fail', 'marginal')."
+          },
+          "key_finding": {
+            "type": "string",
+            "description": "The main outcome or finding from that scenario."
+          },
+          "metrics": {
+            "type": "object",
+            "description": "Key performance metrics for this scenario.",
+            "properties": {
+              "rmse": {
+                "type": "number",
+                "description": "Root Mean Squared Error."
+              },
+              "nse": {
+                "type": "number",
+                "description": "Nash-Sutcliffe Efficiency."
+              },
+              "hypothesis_supported": {
+                "type": "boolean",
+                "description": "Whether the primary hypothesis was supported in this scenario."
+              }
+            },
+            "required": [
+              "rmse",
+              "nse",
+              "hypothesis_supported"
+            ]
+          }
+        },
+        "required": [
+          "scenario_name",
+          "key_finding",
+          "metrics"
+        ]
+      }
+    },
+    "comparative_analysis": {
+      "type": "object",
+      "description": "Comparative analysis of the experiments.",
+      "properties": {
+        "performance_overview": {
+          "type": "string",
+          "description": "General overview of how model performance varied across scenarios."
+        },
+        "cross_scenario_insights": {
+          "type": "string",
+          "description": "Specific insights gained from comparing the scenarios."
+        }
+      },
+      "required": [
+        "performance_overview",
+        "cross_scenario_insights"
+      ]
+    },
+    "overall_conclusion": {
+      "type": "string",
+      "description": "General conclusion for the entire set of experiments and their comparison."
+    }
+  },
+  "required": [
+    "overall_introduction",
+    "experiment_summaries",
+    "comparative_analysis",
+    "overall_conclusion"
+  ]
+}
