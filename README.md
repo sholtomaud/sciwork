@@ -132,12 +132,13 @@ The script will execute the entire workflow, generate files in the `output/` dir
 
 ## Proposed Enhancements
 
-*   **Advanced Comparative Statistics:** Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics).
-*   **User Configuration:** Allow users to define experiment scenarios, model parameters, and data sources through the `config.ini` file or a separate scenario definition file, rather than hardcoding them.
-*   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
-*   **`requirements.txt`:** Add a `requirements.txt` file for easier dependency management.
-*   **Robust Error Handling:** Implement more comprehensive error handling, logging, and retry mechanisms, especially for API calls.
-*   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
-*   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
-*   **Plot Customization:** Allow more control over plot generation through configuration.
-*   **Caching LLM Responses:** Implement a caching mechanism to avoid redundant API calls for identical prompts, saving costs and time.
+**DONE?**
+[]   **Advanced Comparative Statistics:** Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics).
+[]   **User Configuration:** Allow users to define experiment scenarios, model parameters, and data sources through the `config.ini` file or a separate scenario definition file, rather than hardcoding them.
+[]   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
+[]   **`requirements.txt`:** Add a `requirements.txt` file for easier dependency management.
+[]   **Robust Error Handling:** Implement more comprehensive error handling, logging, and retry mechanisms, especially for API calls.
+[]   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
+[]   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
+[]   **Plot Customization:** Allow more control over plot generation through configuration.
+[]   **Caching LLM Responses:** Implement a caching mechanism to avoid redundant API calls for identical prompts, saving costs and time.
