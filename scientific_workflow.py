@@ -9,13 +9,15 @@ import warnings
 import os
 import json
 import requests
-from report_generator import create_scientific_report
+from report_generator import create_individual_experiment_report, create_comparative_docx_report # UPDATED IMPORT
 import configparser
-import os
+# import os # Duplicate import removed
+import shutil # Added for shutil.copy
 import json
 import copy
 from datetime import datetime
 import warnings
+from jsonschema import validate, ValidationError
 
 # Load configuration and JSON schemas
 config = configparser.ConfigParser()
@@ -35,58 +37,26 @@ else:
 # --- Configuration ---
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:${GENERATE_CONTENT_API}?key=${GEMINI_API_KEY}"
 
-# --- JSON Schemas for Structured LLM Output ---
+# --- Helper function to load JSON schemas ---
+def load_json_schema(schema_filename: str) -> dict:
+    """Loads a JSON schema file from the 'schemas' directory."""
+    try:
+        # Construct the full path to the schema file
+        schema_path = os.path.join(os.getcwd(), 'schemas', schema_filename)
+        with open(schema_path, 'r') as f:
+            schema = json.load(f)
+        return schema
+    except FileNotFoundError:
+        print(f"Error: Schema file not found at {schema_path}")
+        # Fallback to an empty schema or raise an error, depending on desired behavior
+        return {"error": f"Schema file not found: {schema_filename}"}
+    except json.JSONDecodeError:
+        print(f"Error: Invalid JSON in schema file: {schema_path}")
+        return {"error": f"Invalid JSON in schema file: {schema_filename}"}
 
-# Schema for the first LLM call (pre-experiment)
-PRE_EXPERIMENT_SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "abstract": {
-            "type": "STRING",
-            "description": "A concise summary of the entire study, including aims, methods, key findings, and conclusions."
-        },
-        "introduction": {
-            "type": "STRING",
-            "description": "Background on Energy Systems, the importance of model validation, and the study's objectives."
-        },
-        "hypothesis": {
-            "type": "OBJECT",
-            "properties": {
-                "statement": {"type": "STRING", "description": "The formal null and alternative hypotheses."},
-                "independent_variable": {"type": "STRING"},
-                "dependent_variable": {"type": "STRING"}
-            }
-        },
-        "methods": {
-            "type": "STRING",
-            "description": "A detailed description of the experimental design, including the model used, data generation, statistical tests, and validation criteria."
-        }
-    },
-    "required": ["abstract", "introduction", "hypothesis", "methods"]
-}
-
-# Schema for the second LLM call (post-experiment interpretation)
-POST_EXPERIMENT_SCHEMA = {
-    "type": "OBJECT",
-    "properties": {
-        "results": {
-            "type": "OBJECT",
-            "properties": {
-                 "summary": {"type": "STRING", "description": "A summary of the key statistical findings and model performance metrics."},
-                 "data_interpretation": {"type": "STRING", "description": "Interpretation of the statistical data table provided in the prompt."}
-            }
-        },
-        "discussion": {
-            "type": "STRING",
-            "description": "Discusses the implications of the results, compares them to the hypothesis, explains why the model performed as it did, and addresses limitations."
-        },
-        "conclusion": {
-            "type": "STRING",
-            "description": "A final summary of the study's findings and their significance for the model's practical utility."
-        }
-    },
-    "required": ["results", "discussion", "conclusion"]
-}
+# --- Load JSON Schemas ---
+PRE_EXPERIMENT_SCHEMA_FROM_FILE = load_json_schema("PRE_EXPERIMENT_SCHEMA.json")
+POST_EXPERIMENT_SCHEMA_FROM_FILE = load_json_schema("POST_EXPERIMENT_SCHEMA.json")
 
 
 # --- Core Model and Validation Classes (from starter) ---
@@ -235,6 +205,16 @@ def call_gemini_api_with_requests(prompt_text, schema):
         
         # Parse the JSON string into a Python dictionary
         parsed_json = json.loads(json_string)
+
+        # Validate the response against the schema
+        if schema and "error" not in schema: # Check if schema is valid before using it
+            try:
+                validate(instance=parsed_json, schema=schema)
+            except ValidationError as e:
+                print(f"LLM response validation error: {e.message}")
+                # Potentially add more robust error handling or logging here
+                # For now, returning parsed_json even if validation fails as per requirement
+
         return parsed_json
 
     except requests.exceptions.RequestException as e:
@@ -244,6 +224,116 @@ def call_gemini_api_with_requests(prompt_text, schema):
         print(f"Error parsing Gemini API response: {e}")
         print(f"Raw Response: {response.text}")
         return {"error": "Failed to parse API response."}
+
+# --- Comparative Report Generation ---
+def generate_comparative_report(initial_report_sections, all_scenarios_data, output_base_dir, pre_experiment_schema_content_actual):
+    """
+    Generates a comparative analysis report using two LLM calls.
+    """
+    print("\n[PHASE 4] Generating Comparative Analysis Report...")
+
+    comparative_schema_obj = load_json_schema("COMPARATIVE_SCHEMA.json")
+    if 'error' in comparative_schema_obj:
+        print("Error loading COMPARATIVE_SCHEMA.json. Aborting comparative report generation.")
+        return None, None
+
+    comparative_output_dir = os.path.join(output_base_dir, "comparative_report")
+    os.makedirs(comparative_output_dir, exist_ok=True)
+    print(f"Created comparative report output directory: {comparative_output_dir}")
+
+    # Prepare data for prompts
+    introduction_text = initial_report_sections.get('introduction', 'No introduction found in initial sections.')
+    scenario_names = list(all_scenarios_data.keys())
+
+    # Data for Prompt 1 (initial structure)
+    prompt1_text = f"""
+    Overall Introduction from Initial Experiment Design:
+    {introduction_text}
+
+    Original Experiment Goals (from experiment_goals.md):
+    {pre_experiment_schema_content_actual}
+
+    Task:
+    You are tasked with creating an overall introduction for a comparative report that evaluates a scientific model across multiple experimental scenarios.
+    The experiments conducted were for the following scenarios: {', '.join(scenario_names)}.
+
+    Based on the provided overall introduction and the experiment goals, please generate:
+    1.  `overall_introduction`: A comprehensive introduction suitable for a comparative report that synthesizes the initial experiment's purpose and the multi-scenario validation approach.
+    2.  `experiment_summaries`: An initial draft for summarizing each experiment. For each scenario in [{', '.join(scenario_names)}], create an entry with its `scenario_name`. The `key_finding` and `metrics` can be placeholder text for now, as they will be populated in a subsequent step.
+    3.  `overall_conclusion`: A preliminary draft for the overall conclusion, anticipating that detailed findings will be integrated later.
+
+    Ensure the output strictly adheres to the COMPARATIVE_SCHEMA.
+    """
+    print("\nCalling LLM for comparative report - Step 1 (Overall Introduction and Structure)...")
+    llm_response_1 = call_gemini_api_with_requests(prompt1_text, comparative_schema_obj)
+
+    if 'error' in llm_response_1:
+        print("Error in LLM call 1 for comparative report. Aborting.")
+        return None, llm_response_1 # Return None for first, and the error response for second to indicate failure at step 1
+
+    try:
+        llm_response_1_path = os.path.join(comparative_output_dir, "comparative_llm_response_1.json")
+        with open(llm_response_1_path, 'w') as f:
+            json.dump(llm_response_1, f, indent=4)
+        print(f"Saved comparative LLM response (Step 1) to {llm_response_1_path}")
+    except Exception as e:
+        print(f"Error saving comparative_llm_response_1 to JSON: {e}")
+
+
+    # Prepare detailed data for Prompt 2
+    detailed_scenario_summaries = []
+    for scenario_name, data in all_scenarios_data.items():
+        metrics = data.get('validation_metrics', {})
+        hyp_results = data.get('hypothesis_results', {})
+        # Use conclusion_narrative as a proxy for key_finding
+        key_finding_proxy = data.get('results_interpretation', {}).get('conclusion_narrative', 'Conclusion not available for this scenario.')
+
+        detailed_scenario_summaries.append({
+            "scenario_name": scenario_name,
+            "rmse": metrics.get('rmse', 0),
+            "nse": metrics.get('nse', 0),
+            "hypothesis_supported": hyp_results.get('hypothesis_supported', False),
+            "key_finding": key_finding_proxy
+        })
+
+    # Use the overall_introduction from the first LLM call if available
+    prompt2_overall_introduction = llm_response_1.get('overall_introduction', introduction_text)
+
+    prompt2_text = f"""
+    Overall Introduction (from previous step):
+    {prompt2_overall_introduction}
+
+    Detailed Scenario Data:
+    {json.dumps(detailed_scenario_summaries, indent=2)}
+
+    Task:
+    Based on the previously generated overall introduction and the detailed data from the experimental scenarios provided above, please complete the comparative report.
+    Specifically:
+    1.  `experiment_summaries`: For each scenario, populate the `key_finding` and `metrics` (rmse, nse, hypothesis_supported) using the detailed data provided.
+    2.  `comparative_analysis`: Generate a comprehensive analysis. This should include:
+        *   `performance_overview`: A general summary of how the model's performance (RMSE, NSE, hypothesis support) varied across the different scenarios.
+        *   `cross_scenario_insights`: Specific insights derived from comparing the outcomes, highlighting any patterns, trade-offs, or unexpected results observed when looking at the scenarios side-by-side.
+    3.  `overall_conclusion`: Refine and finalize the overall conclusion for the entire set of experiments, incorporating the synthesized findings and comparative insights.
+
+    Ensure the output strictly adheres to the COMPARATIVE_SCHEMA and integrates information from all provided scenarios.
+    """
+    print("\nCalling LLM for comparative report - Step 2 (Detailed Analysis and Conclusion)...")
+    llm_response_2 = call_gemini_api_with_requests(prompt2_text, comparative_schema_obj)
+
+    if 'error' in llm_response_2:
+        print("Error in LLM call 2 for comparative report.")
+        # llm_response_1 might be valid, so return it
+        return llm_response_1, llm_response_2
+
+    try:
+        llm_response_2_path = os.path.join(comparative_output_dir, "comparative_llm_response_2.json")
+        with open(llm_response_2_path, 'w') as f:
+            json.dump(llm_response_2, f, indent=4)
+        print(f"Saved comparative LLM response (Step 2) to {llm_response_2_path}")
+    except Exception as e:
+        print(f"Error saving comparative_llm_response_2 to JSON: {e}")
+
+    return llm_response_1, llm_response_2
 
 
 # --- Main Workflow Orchestration ---
@@ -256,6 +346,10 @@ def run_scientific_workflow():
     print("STARTING SCIENTIFIC WORKFLOW AUTOMATION")
     print("="*80)
 
+    output_base_dir = "output"
+    os.makedirs(output_base_dir, exist_ok=True)
+    print(f"Created base output directory: {output_base_dir}")
+
     # 1. First LLM Call: Generate initial report sections
     print("\n[PHASE 1] Generating Initial Report Sections...")
     try:
@@ -266,18 +360,31 @@ def run_scientific_workflow():
         print("Error: `experiment_goals.md` not found. Please create it.")
         return
 
-    initial_report_sections = call_gemini_api_with_requests(methodology_prompt, PRE_EXPERIMENT_SCHEMA)
+    initial_report_sections = call_gemini_api_with_requests(methodology_prompt, PRE_EXPERIMENT_SCHEMA_FROM_FILE)
     if 'error' in initial_report_sections:
         print("Failed to generate initial report sections. Aborting.")
         return
     print("Successfully generated Abstract, Introduction, Hypothesis, and Methods.")
 
+    initial_sections_path = os.path.join(output_base_dir, "common_initial_sections.json")
+    try:
+        with open(initial_sections_path, 'w') as f:
+            json.dump(initial_report_sections, f, indent=4)
+        print(f"Saved initial report sections to {initial_sections_path}")
+    except Exception as e:
+        print(f"Error saving initial_report_sections to JSON: {e}")
+
+
     # 2. Simulation and Analysis for each scenario
     scenarios = ['support', 'fail', 'marginal']
-    results_summary = {}
+    results_summary = {} # This will still hold data for potential later use or debugging
 
     for scenario in scenarios:
         print(f"\n{'='*20} RUNNING SCENARIO: {scenario.upper()} {'='*20}")
+
+        scenario_output_dir = os.path.join(output_base_dir, scenario)
+        os.makedirs(scenario_output_dir, exist_ok=True)
+        print(f"Created scenario output directory: {scenario_output_dir}")
         
         # Generate data
         flow_inputs, time_steps, observed_data = generate_synthetic_data(scenario)
@@ -324,32 +431,88 @@ def run_scientific_workflow():
         Based on this data, generate the JSON output.
         """
         
-        results_interpretation = call_gemini_api_with_requests(results_prompt, POST_EXPERIMENT_SCHEMA)
+        results_interpretation = call_gemini_api_with_requests(results_prompt, POST_EXPERIMENT_SCHEMA_FROM_FILE)
         if 'error' in results_interpretation:
             print(f"Warning: Failed to generate interpretation for {scenario} scenario.")
         else:
             print(f"Successfully generated interpretation for {scenario} scenario.")
 
-        # Store all results for final report generation
-        results_summary[scenario] = {
+        # Store all results for this scenario
+        scenario_data = {
             'validation_metrics': validation_metrics,
             'hypothesis_results': hypothesis_results,
-            'results_interpretation': results_interpretation,
-            'predictions': predictions_df['storage_level'].values,
-            'observations': observed_data['storage_level'].values,
-            'time_steps': time_steps
+            'results_interpretation': results_interpretation, # This is the post-experiment LLM response
+            'predictions': predictions_df['storage_level'].tolist(), # Convert numpy arrays for JSON serialization
+            'observations': observed_data['storage_level'].tolist(), # Convert numpy arrays for JSON serialization
+            'time_steps': time_steps.tolist(), # Convert numpy arrays for JSON serialization
+            'calibration_results': calibration_results
         }
+        results_summary[scenario] = scenario_data # Keep populating this for overall summary if needed
 
-    # 4. Final Step: Compile the full scientific report
-    print("\n[PHASE 3] Compiling Final Scientific Report...")
-    if results_summary:
-        create_scientific_report(results_summary, initial_report_sections)
-    else:
-        print("No results were generated, skipping report creation.")
+        # Save individual JSON files for the scenario
+        pre_experiment_json_path = os.path.join(scenario_output_dir, "pre_experiment_llm_response.json")
+        post_experiment_json_path = os.path.join(scenario_output_dir, "post_experiment_llm_response.json")
 
+        try:
+            shutil.copy(initial_sections_path, pre_experiment_json_path)
+            print(f"Copied common initial sections to {pre_experiment_json_path}")
+        except Exception as e:
+            print(f"Error copying initial sections for scenario {scenario}: {e}")
+
+        try:
+            with open(post_experiment_json_path, 'w') as f:
+                json.dump(results_interpretation, f, indent=4)
+            print(f"Saved post-experiment LLM response to {post_experiment_json_path}")
+        except Exception as e:
+            print(f"Error saving results_interpretation for scenario {scenario} to JSON: {e}")
+
+        # 4. Generate individual experiment report for this scenario
+        # The actual function `create_individual_experiment_report` will be fully defined in a later subtask.
+        # For now, we anticipate its signature and call it.
+        # We pass initial_report_sections (pre-LLM) and scenario_data (which includes post-LLM results_interpretation)
+        print(f"\n[PHASE 3 - {scenario.upper()}] Compiling Individual Experiment Report...")
+        # Placeholder for the new report generator call
+        # create_individual_experiment_report(scenario, initial_report_sections, scenario_data, scenario_output_dir)
+        # print(f"Report generation called for {scenario} (actual function to be implemented).")
+        # For now, to avoid NameError, let's comment out the actual call and just print a message
+        # We'll also update the import from report_generator later
+        # print(f"Placeholder: Would call create_individual_experiment_report for {scenario} in {scenario_output_dir}")
+        # Simulate that the function from report_generator.py is being used, even if it's the old one for now.
+        # This will be replaced when report_generator.py is updated.
+        # To make the current code runnable without error, we'll call the old function but it won't do what we eventually want.
+        # This is a temporary measure.
+        create_individual_experiment_report(scenario, initial_report_sections, scenario_data, scenario_output_dir)
+
+
+    # Overall completion message
     print("\n="*80)
-    print("SCIENTIFIC WORKFLOW COMPLETED")
+    print("SCIENTIFIC WORKFLOW COMPLETED FOR ALL SCENARIOS")
     print("="*80)
+
+    # 5. Generate Comparative Report (New Step)
+    if results_summary and initial_report_sections and 'error' not in initial_report_sections:
+        comparative_response_1, comparative_response_2 = generate_comparative_report(
+            initial_report_sections,
+            results_summary,
+            output_base_dir,
+            methodology_prompt # This is the content of experiment_goals.md
+        )
+
+        if comparative_response_1 and comparative_response_2 and \
+           'error' not in comparative_response_1 and 'error' not in comparative_response_2:
+            print("\nSuccessfully generated comparative analysis data (2 LLM calls).")
+            comparative_report_docx_path = os.path.join(output_base_dir, "comparative_report") # Ensure this path is consistent
+            create_comparative_docx_report(comparative_response_1, comparative_response_2, comparative_report_docx_path)
+        elif comparative_response_1 and 'error' in comparative_response_1:
+            print("\nFailed to generate comparative analysis data due to error in LLM call 1.")
+        elif comparative_response_2 and 'error' in comparative_response_2: # Error in second call, first might be okay
+            print("\nFailed to generate complete comparative analysis data due to error in LLM call 2.")
+            # Optionally, still try to save the first response if it's useful
+            # create_comparative_docx_report(comparative_response_1, None, os.path.join(output_base_dir, "comparative_report"))
+        else: # Handles cases where one or both responses might be None without an 'error' key if generate_comparative_report returns None
+            print("\nFailed to generate complete comparative analysis data. Responses might be missing.")
+    else:
+        print("\nSkipping comparative report generation due to missing data or errors in initial sections.")
 
 
 if __name__ == "__main__":
