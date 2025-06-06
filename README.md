@@ -133,27 +133,30 @@ The script will execute the entire workflow, generate files in the `output/` dir
 ## Proposed Enhancements
 
 **DONE?**
-[]   **`requirements.txt`:** Add a `requirements.txt` file for easier dependency management.
-[]   **Robust Error Handling:** Implement more comprehensive error handling, logging, and retry mechanisms, especially for API calls.
-[]   **Unit and Integration Testing:** Implement unit tests for individual functions and integration tests for the overall workflow. This could include jsonschema validation for LLM responses.
-[]   **Configurable Model and Data Input:** Allow users to specify the model to be validated and the source/format of observational data via configuration files, rather than hardcoding them. This includes an option to use pre-generated, immutable synthetic test data for CI/CD and testing.
-[]   **Test Data Generation Step:** If configurable observational data is supported, include an optional step to generate synthetic observation data based on user specifications.
-[]   **Consolidated JSON Data:** Combine all relevant data (LLM responses, model configuration/parameters, observational data) into a single JSON file per experiment for better data management and reproducibility.
-[]   **CI/CD integration.**
-[]   **Code linting and formatting.**
-[]   **Caching LLM Responses:** Implement a caching mechanism to avoid redundant API calls for identical prompts, saving costs and time.
-[]   **Support for different LLM providers.**
 []   **Advanced Comparative Statistics:** Enable the LLM to suggest and interpret appropriate statistical tests for comparing model performance across scenarios (e.g., ANOVA, t-tests on metrics).
-[]   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
-[]   **Template-based report generation.**
-[]   **Version control for experimental results.**
-[]   **Interactive data visualization.**
-[]   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
-[]   **Plot Customization:** Allow more control over plot generation through configuration.
-[]   **Automated hyperparameter tuning.**
-[]   **Sensitivity analysis.**
-[]   **Cloud storage integration.**
-[]   **Extensible plugin architecture.**
-[]   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
 []   **LLM-Powered Peer Review:** Add a workflow step where an LLM acts as a peer reviewer, critiquing the generated report. This would involve providing the reviewer LLM with the report content and relevant statistical data.
 []   **Author Response to Peer Review:** Add a subsequent workflow step for the original LLM "author" to respond to the peer reviewer's critique and revise the report.
+[]   **Unit and Integration Testing:** Implement unit tests for individual functions and integration tests for the overall workflow. This could include jsonschema validation for LLM responses.
+[]   **Automated Report Quality Metrics:** Develop and implement objective metrics to automatically assess the quality of generated reports (e.g., coherence, completeness, factual accuracy based on input data, readability).
+[]   **Consolidated JSON Data:** Combine all relevant data (LLM responses, model configuration/parameters, observational data) into a single JSON file per experiment for better data management and reproducibility.
+[]   **Configurable Model and Data Input:** Allow users to specify the model to be validated and the source/format of observational data via configuration files, rather than hardcoding them.
+[]   **Pre-generated Immutable Synthetic Test Data:** Provide scripts to generate immutable synthetic test datasets. These datasets would be generated once (or when updates are needed) and used consistently for CI/CD, testing, and routine workflow execution to ensure reproducibility and comparability of results.
+[]   **Data Versioning for Immutable Datasets:** Implement version control for the pre-generated immutable test datasets (e.g., using DVC or Git LFS) to track changes and ensure long-term reproducibility.
+[]   **Utilize Structured Assessment:** More directly incorporate the `structured_assessment` part of `POST_EXPERIMENT_SCHEMA.json` into the comparative analysis, perhaps by having the LLM synthesize these structured points.
+[]   **User Configuration:** Allow users to define experiment scenarios, model parameters, and data sources through the `config.ini` file or a separate scenario definition file, rather than hardcoding them.
+[]   **Robust Error Handling:** Implement more comprehensive error handling, logging, and retry mechanisms, especially for API calls.
+[]   **`requirements.txt`:** Add a `requirements.txt` file for easier dependency management.
+[]   **Support for different LLM providers:** Allow users to choose between different LLM providers (e.g., OpenAI, Anthropic) in the configuration. This would require abstracting the LLM interaction layer.
+[]   **Template-based report generation:** Instead of hardcoding the report structure in `report_generator.py`, use a templating engine (e.g., Jinja2) for more flexible report customization.
+[]   **Version control for experimental results:** Integrate with Git to automatically commit new results and reports, allowing for better tracking and reproducibility of experiments.
+[]   **Interactive data visualization:** Instead of static plots, use libraries like Plotly or Bokeh to generate interactive visualizations that can be embedded in HTML reports or viewed in a browser.
+[]   **Automated hyperparameter tuning:** For the system model being validated, incorporate a module for automated hyperparameter tuning to find the optimal model configuration.
+[]   **Sensitivity analysis:** Add functionality to perform sensitivity analysis by systematically varying input parameters and observing their impact on model outputs.
+[]   **Cloud storage integration:** Allow users to save and load experimental data and reports from cloud storage services (e.g., Google Cloud Storage, AWS S3).
+[]   **Extensible plugin architecture:** Design a plugin system to allow users to easily add new models, validation metrics, or report sections without modifying the core codebase.
+[]   **Code linting and formatting:** Add a linter (e.g. pylint, flake8) and a formatter (e.g. black, yapf) to the project to ensure code quality and consistency.
+[]   **CI/CD integration:** Add a CI/CD pipeline (e.g. GitHub Actions) to automate testing, linting, and formatting.
+[]   **Scenario-Specific Pre-Experiment Calls:** Option to have the initial LLM call (for abstract, intro, etc.) be specific to each scenario if the overarching goals differ significantly.
+[]   **Interactive Interface:** Develop a simple GUI (e.g., using Tkinter, Streamlit) or a web interface (e.g., Flask, Django) for easier configuration, execution, and viewing of reports.
+[]   **Plot Customization:** Allow more control over plot generation through configuration.
+[]   **Caching LLM Responses:** Implement a caching mechanism to avoid redundant API calls for identical prompts, saving costs and time.
