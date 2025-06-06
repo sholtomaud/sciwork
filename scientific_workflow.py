@@ -118,7 +118,23 @@ class ModelValidator:
         nse = 1 - (np.sum((self.observations - self.predictions)**2) / 
                   np.sum((self.observations - np.mean(self.observations))**2))
         energy_diff = self.observations - self.predictions
-        t_stat, p_energy = stats.ttest_1samp(energy_diff, 0)
+        # Handle case where all differences are zero for t-test
+        if np.all(energy_diff == 0):
+            t_stat = 0.0
+            p_energy = 1.0
+        elif np.var(energy_diff) == 0: # All differences are same non-zero value (highly unlikely for real data)
+            # This case would also yield NaN from ttest_1samp due to zero variance.
+            # Treat as perfectly predictable deviation if it occurs.
+            # For hypothesis: if mean diff is not zero, p_energy should be small.
+            # However, ttest_1samp handles this by returning nan.
+            # A more robust approach might be needed if this specific edge case is critical.
+            # For now, let ttest_1samp produce NaN, which will fail p > alpha.
+            # Or, if mean(energy_diff) is exactly 0 (but not all zeros), it's like the np.all case.
+            # The primary concern is avoiding NaN from zero variance when diffs are truly all zero.
+            t_stat, p_energy = stats.ttest_1samp(energy_diff, 0) # This will likely be nan/nan
+        else:
+            t_stat, p_energy = stats.ttest_1samp(energy_diff, 0)
+
         self.validation_results = {
             'rmse': rmse, 'mae': mae, 'mape': mape, 'pearson_r': r_pearson,
             'pearson_p': p_pearson, 'spearman_r': r_spearman, 'spearman_p': p_spearman,
@@ -144,21 +160,7 @@ class ModelValidator:
             'detailed_results': validation_criteria
         }
 
-# --- Data Generation and Model Calibration ---
-
-def generate_synthetic_data(scenario='support'):
-    time_steps = np.arange(0, 100, 1)
-    base_flow = 20 + 10 * np.sin(time_steps * 0.1) + np.random.normal(0, 2, len(time_steps))
-    base_flow = np.maximum(base_flow, 0)
-    model = SystemModel(120, 0.75, 0.85)
-    true_data = model.simulate(base_flow, time_steps)
-    if scenario == 'support':
-        true_data['storage_level'] += np.random.normal(0, 2, len(true_data))
-    elif scenario == 'fail':
-        true_data['storage_level'] = true_data['storage_level'] * 1.5 + 20 + np.random.normal(0, 10, len(true_data))
-    elif scenario == 'marginal':
-        true_data['storage_level'] = true_data['storage_level'] * 1.2 + 10 + np.random.normal(0, 5, len(true_data))
-    return base_flow, time_steps, true_data
+# --- Model Calibration ---
 
 def calibrate_model(observed_data, flow_inputs, time_steps):
     def objective_function(params):
@@ -453,12 +455,47 @@ def run_scientific_workflow():
         os.makedirs(scenario_output_dir, exist_ok=True)
         print(f"Created scenario output directory: {scenario_output_dir}")
         
-        # Generate data
-        flow_inputs, time_steps, observed_data = generate_synthetic_data(scenario)
-        print(f"Generated synthetic data with {len(time_steps)} time points.")
+        # Load data for the current scenario
+        data_path = f"test_data/{scenario}_data.json"
+        try:
+            with open(data_path, 'r') as f:
+                loaded_data = json.load(f)
+            print(f"Loaded data from {data_path}")
+        except FileNotFoundError:
+            print(f"Error: Data file not found for scenario '{scenario}' at {data_path}")
+            results_summary[scenario] = {"error": f"Data file not found: {data_path}"}
+            continue # Skip to the next scenario
+        except json.JSONDecodeError:
+            print(f"Error: Could not decode JSON from {data_path}")
+            results_summary[scenario] = {"error": f"JSON decode error: {data_path}"}
+            continue # Skip to the next scenario
+
+        flow_inputs_list = loaded_data.get("flow_inputs")
+        time_steps_list = loaded_data.get("time_steps")
+        observed_data_dict_list = loaded_data.get("observed_data")
+
+        if flow_inputs_list is None or time_steps_list is None or observed_data_dict_list is None:
+            print(f"Error: Data missing in {data_path}. Required keys: 'flow_inputs', 'time_steps', 'observed_data'.")
+            results_summary[scenario] = {"error": f"Data missing in {data_path}"}
+            continue
+
+        flow_inputs = np.array(flow_inputs_list)
+        time_steps = np.array(time_steps_list)
+
+        # Convert observed_data dictionary lists to numpy arrays or pandas Series
+        # For calibrate_model, we need a DataFrame with 'storage_level'
+        # For ModelValidator and plotting, we primarily use 'storage_level' as a Series/array.
+        observed_data_np = {}
+        for key, value in observed_data_dict_list.items():
+            observed_data_np[key] = np.array(value)
         
+        # This is what calibrate_model expects
+        observed_data_for_calibration = pd.DataFrame({'storage_level': observed_data_np['storage_level']})
+
+        print(f"Loaded and processed data for scenario '{scenario}' with {len(time_steps)} time points.")
+
         # Calibrate model
-        calibration_results = calibrate_model(observed_data, flow_inputs, time_steps)
+        calibration_results = calibrate_model(observed_data_for_calibration, flow_inputs, time_steps)
         print(f"Model calibration complete. Final RMSE: {calibration_results['calibration_rmse']:.3f}")
         
         # Simulate with calibrated model
@@ -470,7 +507,9 @@ def run_scientific_workflow():
         predictions_df = calibrated_model.simulate(flow_inputs, time_steps)
         
         # Validate predictions
-        validator = ModelValidator(predictions_df['storage_level'], observed_data['storage_level'])
+        # ModelValidator expects observations for 'storage_level' as a 1D array or Series
+        observed_storage_level_for_validation = observed_data_np['storage_level']
+        validator = ModelValidator(predictions_df['storage_level'], observed_storage_level_for_validation)
         validation_metrics = validator.calculate_metrics()
         hypothesis_results = validator.hypothesis_test()
         
@@ -509,12 +548,14 @@ def run_scientific_workflow():
             'validation_metrics': validation_metrics,
             'hypothesis_results': hypothesis_results,
             'results_interpretation': results_interpretation, # This is the post-experiment LLM response
-            'predictions': predictions_df['storage_level'].tolist(), # Convert numpy arrays for JSON serialization
-            'observations': observed_data['storage_level'].tolist(), # Convert numpy arrays for JSON serialization
-            'time_steps': time_steps.tolist(), # Convert numpy arrays for JSON serialization
-            'calibration_results': calibration_results
+            'predictions': predictions_df['storage_level'].tolist(),
+            'observations': observed_storage_level_for_validation.tolist(),
+            'time_steps': time_steps.tolist(),
+            'calibration_results': calibration_results,
+            # Store the full observed_data_np if other parts are needed later for comprehensive reporting
+            'full_observed_data_np': {k: v.tolist() for k, v in observed_data_np.items()}
         }
-        results_summary[scenario] = scenario_data # Keep populating this for overall summary if needed
+        results_summary[scenario] = scenario_data
 
         # Save individual JSON files for the scenario
         pre_experiment_json_path = os.path.join(scenario_output_dir, "pre_experiment_llm_response.json")
