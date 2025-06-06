@@ -29,6 +29,16 @@ All generated reports are provided in DOCX format, and intermediate LLM response
 │   ├── PRE_EXPERIMENT_SCHEMA.json       # Schema for initial LLM call (abstract, intro, etc.)
 │   ├── POST_EXPERIMENT_SCHEMA.json      # Schema for interpreting individual scenario results
 │   └── COMPARATIVE_SCHEMA.json          # Schema for the comparative analysis report
+├── test_data/
+│   ├── support_data.json            # Example pre-generated data for 'support' scenario
+│   ├── fail_data.json               # Example pre-generated data for 'fail' scenario
+│   └── marginal_data.json           # Example pre-generated data for 'marginal' scenario
+├── tests/
+│   ├── __init__.py
+│   ├── test_data_handling.py        # Unit tests for data loading
+│   ├── test_workflow_components.py  # Unit tests for workflow components
+│   ├── test_report_generator.py     # Unit tests for report generation
+│   └── test_integration.py          # Integration tests for the main workflow
 ├── output/
 │   ├── common_initial_sections.json     # LLM response for pre-experiment sections
 │   ├── support/                         # Example scenario directory
@@ -46,6 +56,7 @@ All generated reports are provided in DOCX format, and intermediate LLM response
 │       └── comparative_report.docx         # Final comparative DOCX report
 ├── scientific_workflow.py               # Main script to run the workflow
 ├── report_generator.py                  # Handles DOCX creation for individual and comparative reports
+├── generate_test_data.py            # Script to generate synthetic data for testing
 ├── experiment_goals.md                  # User-defined input prompt for the initial LLM call
 └── config.ini                           # Configuration file (API keys, model names)
 ```
@@ -110,7 +121,7 @@ The script will execute the entire workflow, generate files in the `output/` dir
 3.  **Individual Scenario Processing (Loop):**
     *   The workflow iterates through predefined scenarios (e.g., 'support', 'fail', 'marginal').
     *   For each scenario:
-        *   **Data Generation & Modeling:** Generates synthetic data, calibrates a system model, simulates its behavior, and performs validation (calculates metrics like RMSE, NSE, etc.).
+        *   **Data Loading & Modeling:** Loads pre-generated synthetic data from `test_data/`, calibrates a system model, simulates its behavior, and performs validation (calculates metrics like RMSE, NSE, etc.).
         *   **Scenario Interpretation (Post-Experiment LLM Call):** Makes a second LLM call guided by `POST_EXPERIMENT_SCHEMA.json`, providing the scenario's statistical data. The LLM generates:
             *   Results Narrative
             *   Discussion Narrative
@@ -130,6 +141,17 @@ The script will execute the entire workflow, generate files in the `output/` dir
         *   Response saved to `output/comparative_report/comparative_llm_response_2.json`.
         *   **DOCX Generation:** Generates the final comparative DOCX report (`comparative_report.docx`) using the content from the second comparative LLM call.
 
+## Testing & Quality Assurance
+### Unit and Integration Testing
+Implement unit tests for individual functions and integration tests for the overall workflow. This could include jsonschema validation for LLM responses.
+
+### Automated Report Quality Metrics
+Develop and implement objective metrics to automatically assess the quality of generated reports (e.g., coherence, completeness, factual accuracy based on input data, readability).
+
+## App structure
+### File and directory output
+Enable options for customisation of the output folder. The outputs need to default to `output/YYYYMMDD_HHMMSS` timestamped folder so that the reports are not overwritten.
+
 # Project Enhancement Checklist
 
 ## App structure
@@ -141,9 +163,6 @@ The script will execute the entire workflow, generate files in the `output/` dir
 - [ ] **Author Response to Peer Review**: Add a subsequent workflow step for the original LLM "author" to respond to the peer reviewer's critique and revise the report
 
 ## Testing & Quality Assurance
-- [ ] **Unit and Integration Testing**: Implement unit tests for individual functions and integration tests for the overall workflow. This could include jsonschema validation for LLM responses
-- [ ] **Automated Report Quality Metrics**: Develop and implement objective metrics to automatically assess the quality of generated reports (e.g., coherence, completeness, factual accuracy based on input data, readability)
-
 ## Data Management
 - [ ] **Consolidated JSON Data**: Combine all relevant data (LLM responses, model configuration/parameters, observational data) into a single JSON file per experiment for better data management and reproducibility
 - [ ] **Configurable Model and Data Input**: Allow users to specify the model to be validated and the source/format of observational data via configuration files, rather than hardcoding them
